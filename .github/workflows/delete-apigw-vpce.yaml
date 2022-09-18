@@ -1,0 +1,39 @@
+name: delete-apigw-vpce
+
+on:
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  ACCOUNT_A_DEPLOY_ROLE: arn:aws:iam::111111111111:role/gh-oidc-deploy  # TODO account-A, vpce, lambda api tester
+  AWS_REGION: ap-southeast-2
+  STACK_BASENAME: k-cross-account-priv-apigw-demo
+
+jobs:
+  delete:
+    name: Delete CFN stack
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set env.STACK_NAME_VPCE
+        run: echo "STACK_NAME_VPCE=${{ env.STACK_BASENAME }}-apigw-vpce" >> $GITHUB_ENV
+
+      - uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-duration-seconds: 900
+          role-skip-session-tagging: true
+          role-to-assume: ${{ env.ACCOUNT_A_DEPLOY_ROLE }}
+
+      - name: Delete ${{ env.STACK_NAME_VPCE }}
+        run: aws cloudformation delete-stack --stack-name ${{ env.STACK_NAME_VPCE }}
+
+      - name: Wait until stack delete complete
+        run: aws cloudformation wait stack-delete-complete --stack-name ${{ env.STACK_NAME_VPCE }}

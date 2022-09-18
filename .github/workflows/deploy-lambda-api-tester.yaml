@@ -1,0 +1,66 @@
+name: deploy-lambda-api-tester
+
+on:
+  # push:
+  #   paths:
+  #     - .github/workflows/deploy-lambda-api-tester.yaml
+  #     - cfn/lambda-api-tester.yaml
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  ACCOUNT_A_DEPLOY_ROLE: arn:aws:iam::111111111111:role/gh-oidc-deploy  # account-A, vpce, lambda api tester
+  ACCOUNT_B_APIGW_ENDPOINT: dummyapiid.execute-api.ap-southeast-2.amazonaws.com  # TODO get this from deploy-apigw
+  ACCOUNT_B_APIGW_ENDPOINT_R53: dummyapiid-vpce-12345678901234567.execute-api.ap-southeast-2.amazonaws.com  # TODO get this from deploy-apigw
+  ACCOUNT_B_APIGW_ENDPOINT_PUB_DNS: vpce-12345678901234567-abcdefgh.execute-api.ap-southeast-2.vpce.amazonaws.com  # TODO get this from deploy-apigw-vpce
+  AWS_REGION: ap-southeast-2
+  STACK_BASENAME: k-cross-account-priv-apigw-demo
+
+jobs:
+  deploy:
+    name: Deploy CFN stack
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Run yamllint
+        run: yamllint -c ./.github/linters/.yaml-lint.yaml .github/workflows/deploy-lambda-api-tester.yaml cfn/lambda-api-tester.yaml -f parsable
+
+      - name: Run cfn-lint
+        run: |
+          pip install cfn-lint~=0.61
+          cfn-lint cfn/apigw-vpce.yaml
+
+      - name: Set env.STACK_NAME_LAMBDA
+        run: echo "STACK_NAME_LAMBDA=${{ env.STACK_BASENAME }}-lambda-tester" >> $GITHUB_ENV
+
+      - uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-duration-seconds: 900
+          role-skip-session-tagging: true
+          role-to-assume: ${{ env.ACCOUNT_A_DEPLOY_ROLE }}
+
+      - name: Deploy ${{ env.STACK_NAME_LAMBDA }} CFN stack to account A
+        uses: aws-actions/aws-cloudformation-github-deploy@v1
+        with:
+          name: ${{ env.STACK_NAME_LAMBDA }}
+          capabilities: CAPABILITY_IAM
+          no-fail-on-empty-changeset: 1
+          template: cfn/lambda-api-tester.yaml
+          parameter-overrides: >-
+            ApigwEndpoint=${{ env.ACCOUNT_B_APIGW_ENDPOINT }},
+            ApigwVpcEndpointR53Alias=${{ env.ACCOUNT_B_APIGW_ENDPOINT_R53 }},
+            ApiPath=/v0/mock,
+            VpcEndpointPublicDnsName=${{ env.ACCOUNT_B_APIGW_ENDPOINT_PUB_DNS }}
+          tags: '[
+            {"Key": "Description", "Value": "Cross Account Private APIGW Demo"},
+            {"Key": "Project", "Value": "Cross Account Private APIGW Demo"},
+            {"Key": "Repository", "Value": "${{ github.repository }}"}
+          ]'

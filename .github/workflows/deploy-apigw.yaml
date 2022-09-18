@@ -1,0 +1,63 @@
+name: deploy-apigw
+
+on:
+  # push:
+  #   paths:
+  #     - .github/workflows/deploy-apigw.yaml
+  #     - cfn/apigw-mock-simple.yaml
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  ACCOUNT_A_VPCE_ID: vpce-12345678901234567  # TODO get this from deploy-apigw-vpce
+  ACCOUNT_B_DEPLOY_ROLE: arn:aws:iam::222222222222:role/gh-oidc-deploy  # account-B, apigw
+  AWS_REGION: ap-southeast-2
+  STACK_BASENAME: k-cross-account-priv-apigw-demo
+
+jobs:
+  deploy:
+    name: Deploy CFN stack
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Run yamllint
+        run: yamllint -c ./.github/linters/.yaml-lint.yaml .github/workflows/deploy-apigw.yaml cfn/apigw-mock-simple.yaml -f parsable
+
+      - name: Run cfn-lint
+        run: |
+          pip install cfn-lint~=0.61
+          cfn-lint cfn/apigw-vpce.yaml
+
+      - name: Set nev.STACK_NAME_APIGW
+        run: echo "STACK_NAME_APIGW=${{ env.STACK_BASENAME }}-apigw" >> $GITHUB_ENV
+
+      - uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-duration-seconds: 900
+          role-skip-session-tagging: true
+          role-to-assume: ${{ env.ACCOUNT_B_DEPLOY_ROLE }}
+
+      - name: Deploy ${{ env.STACK_NAME_APIGW }} CFN stack to account B
+        uses: aws-actions/aws-cloudformation-github-deploy@v1
+        with:
+          name: ${{ env.STACK_NAME_APIGW }}
+          capabilities: CAPABILITY_IAM
+          no-fail-on-empty-changeset: 1
+          template: cfn/apigw-mock-simple.yaml
+          parameter-overrides: >-
+            ApiName=${{ env.STACK_NAME_APIGW }}-api,
+            ApiStageName=v0,
+            VpcEndpointId=${{ env.ACCOUNT_A_VPCE_ID }}
+          tags: '[
+            {"Key": "Description", "Value": "Cross Account Private APIGW Demo"},
+            {"Key": "Project", "Value": "Cross Account Private APIGW Demo"},
+            {"Key": "Repository", "Value": "${{ github.repository }}"}
+          ]'

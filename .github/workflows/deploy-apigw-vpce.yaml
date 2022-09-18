@@ -1,0 +1,64 @@
+name: deploy-apigw-vpce
+
+on:
+  # push:
+  #   paths:
+  #     - .github/workflows/deploy-apigw-vpce.yaml
+  #     - cfn/apigw-vpce.yaml
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  ACCOUNT_A_DEPLOY_ROLE: arn:aws:iam::111111111111:role/gh-oidc-deploy  # TODO account-A, vpce, lambda api tester
+  AWS_REGION: ap-southeast-2
+  STACK_BASENAME: k-cross-account-priv-apigw-demo
+
+jobs:
+  deploy:
+    name: Deploy CFN stack
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Run yamllint
+        run: yamllint -c ./.github/linters/.yaml-lint.yaml .github/workflows/*deploy-apigw-vpce.yaml cfn/apigw-vpce.yaml -f parsable
+
+      - name: Run cfn-lint
+        run: |
+          pip install cfn-lint~=0.61
+          cfn-lint cfn/apigw-vpce.yaml
+
+      - name: Set env.STACK_NAME_VPCE
+        run: echo "STACK_NAME_VPCE=${{ env.STACK_BASENAME }}-apigw-vpce" >> $GITHUB_ENV
+
+      - uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-duration-seconds: 900
+          role-skip-session-tagging: true
+          role-to-assume: ${{ env.ACCOUNT_A_DEPLOY_ROLE }}
+
+      - name: Deploy ${{ env.STACK_NAME_VPCE }} CFN stack to account A
+        uses: aws-actions/aws-cloudformation-github-deploy@v1
+        with:
+          name: ${{ env.STACK_NAME_VPCE }}
+          no-fail-on-empty-changeset: 1
+          template: cfn/apigw-vpce.yaml
+          tags: '[
+            {"Key": "Description", "Value": "Cross Account Private APIGW Demo"},
+            {"Key": "Project", "Value": "Cross Account Private APIGW Demo"},
+            {"Key": "Repository", "Value": "${{ github.repository }}"}
+          ]'
+
+      - name: Set VPCE_ID to GITHUB_ENV
+        run: |
+          echo "VPCE_ID=$(aws cloudformation describe-stacks --stack-name ${{ env.STACK_NAME_VPCE }} --query 'Stacks[0].Outputs[?OutputKey==`VpcEndpointId`].OutputValue' --output text)" >> $GITHUB_ENV
+
+      - name: Add tags to VPC Endpoint
+        run: aws ec2 create-tags --resources ${{ env.VPCE_ID }} --tags Key=stack-name,Value=${{ env.STACK_NAME_VPCE }}
