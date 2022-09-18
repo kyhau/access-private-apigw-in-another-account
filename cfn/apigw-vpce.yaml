@@ -1,0 +1,82 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: >-
+  Create VPC Endpoint and Policy.
+  After you create an interface VPC endpoint, if you enable private DNS hostnames for the endpoint, the default
+  API Gateway endpoint (https://execute-api.<Region>.amazonaws.com) resolves to your VPC endpoint.
+  If you do not enable private DNS hostnames, Amazon VPC provides a DNS endpoint name that you can use in the
+  following format: <VPC_Endpoint_ID>.execute-api.<Region>.vpce.amazonaws.com.
+
+Resources:
+  # Security group to associate with the endpoint network interface.
+  # The security group must be set to allow TCP Port 443 inbound HTTPS traffic from either an IP range in your VPC or another security group in your VPC.
+  EndpointSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group of vpce
+      GroupName: !Sub ${AWS::StackName}-sg
+      SecurityGroupIngress:
+        # Use one subnet only for demo
+        # - CidrIp: !ImportValue vpc01-subnet-a-cidr
+        #   Description: subnet-a-cidr
+        #   IpProtocol: tcp
+        #   FromPort: 443
+        #   ToPort: 443
+        # - CidrIp: !ImportValue vpc01-subnet-b-cidr
+        #   Description: subnet-b-cidr
+        #   IpProtocol: tcp
+        #   FromPort: 443
+        #   ToPort: 443
+        - CidrIp: !ImportValue vpc01-subnet-c-cidr
+          Description: subnet-c-cidr
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: '-1'
+      VpcId: !ImportValue vpc01-id
+
+  VpcEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      # TODO If you do not use API Gateway Resource Policy to restrict access to only this VPC endpoint,
+      # then enable the following:
+      #
+      # PolicyDocument:  # A policy to attach to the endpoint that controls access to the service.
+      #  Version: 2012-10-17
+      #  Statement:
+      #    - Effect: Allow
+      #      Principal: "*"    # TODO AWS: ["arn:aws:iam::123412341234:user/MyUser"]
+      #      Action:
+      #        - execute-api:Invoke
+      #      Resource:
+      #        - arn:aws:execute-api:ap-southeast-2:123412341234:aaaaa11111/*
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+        - !Ref EndpointSecurityGroup
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.execute-api
+      SubnetIds:
+        # Use one subnet only for demo
+        # - !ImportValue vpc01-subnet-a-id
+        # - !ImportValue vpc01-subnet-b-id
+        - !ImportValue vpc01-subnet-c-id
+      VpcEndpointType: Interface
+      VpcId: !ImportValue vpc01-id
+
+Outputs:
+  VpcEndpointId:
+    Description: Logical ID of the VPC endpoint
+    Value: !Ref VpcEndpoint
+
+  VpcEndpointCreationTimestamp:
+    Description: The date and time the VPC endpoint was created. E.g. Fri Sep 28 23:34:36 UTC 2018.
+    Value: !GetAtt VpcEndpoint.CreationTimestamp
+
+  VpcEndpointDnsEntries:
+    Description: The DNS entries for the endpoint
+    Value: !Join [",", !GetAtt VpcEndpoint.DnsEntries]
+
+  VpcEndpointNetworkInterfaceIds:
+    Description: One or more network interface IDs
+    Value: !Join [",", !GetAtt VpcEndpoint.NetworkInterfaceIds]
