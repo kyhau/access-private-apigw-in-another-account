@@ -22,6 +22,9 @@ For details see [How can I access an API Gateway private REST API in another AWS
 2. The workflow [deploy-apigw.yaml](./.github/workflows/deploy-apigw.yaml) deploys a simple API Gateway private REST API to Account-B. The stack deploys deploy a resource policy for the private REST API that allows the interface endpoint to invoke the API.
 3. The workflow [deploy-lambda-api-tester.yaml](./.github/workflows/deploy-lambda-api-tester.yaml) deploys a Lambda function to VPC subnet(s) in Account-A, for testing the
 
+
+## Testing the API endpoints with the Lambda function ApiTesterFunction
+
 The Lambda function ApiTesterFunction ([ApiTester.py](./function/ApiTester.py)) tests the 4 endpoints/approaches accessing the API in another AWS account:
 
 1. Default APIGW endpoint; work only if private DNS enabled for your interface endpoint
