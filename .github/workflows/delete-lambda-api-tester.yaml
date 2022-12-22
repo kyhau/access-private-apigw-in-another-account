@@ -25,7 +25,7 @@ jobs:
       - name: Set env.STACK_NAME_LAMBDA
         run: echo "STACK_NAME_LAMBDA=${{ env.STACK_BASENAME }}-lambda-tester" >> $GITHUB_ENV
 
-      - uses: aws-actions/configure-aws-credentials@v1
+      - uses: aws-actions/configure-aws-credentials@v1-node16
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-duration-seconds: 900
