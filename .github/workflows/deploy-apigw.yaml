@@ -38,7 +38,7 @@ jobs:
       - name: Set nev.STACK_NAME_APIGW
         run: echo "STACK_NAME_APIGW=${{ env.STACK_BASENAME }}-apigw" >> $GITHUB_ENV
 
-      - uses: aws-actions/configure-aws-credentials@v4.1.0
+      - uses: aws-actions/configure-aws-credentials@v4.2.0
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-duration-seconds: 900
