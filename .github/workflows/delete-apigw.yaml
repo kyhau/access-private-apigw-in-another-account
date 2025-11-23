@@ -20,7 +20,7 @@ jobs:
       id-token: write
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Set env.STACK_NAME_APIGW
         run: echo "STACK_NAME_APIGW=${{ env.STACK_BASENAME }}-apigw" >> $GITHUB_ENV
