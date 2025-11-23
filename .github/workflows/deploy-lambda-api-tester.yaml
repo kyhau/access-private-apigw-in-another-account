@@ -27,7 +27,7 @@ jobs:
       id-token: write
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Run yamllint
         run: yamllint -c ./.github/linters/.yaml-lint.yaml .github/workflows/deploy-lambda-api-tester.yaml cfn/lambda-api-tester.yaml -f parsable
