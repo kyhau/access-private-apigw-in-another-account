@@ -46,7 +46,7 @@ jobs:
           role-to-assume: ${{ env.ACCOUNT_B_DEPLOY_ROLE }}
 
       - name: Deploy ${{ env.STACK_NAME_APIGW }} CFN stack to account B
-        uses: aws-actions/aws-cloudformation-github-deploy@v1
+        uses: aws-actions/aws-cloudformation-github-deploy@v2
         with:
           name: ${{ env.STACK_NAME_APIGW }}
           capabilities: CAPABILITY_IAM
