@@ -48,7 +48,7 @@ jobs:
           role-to-assume: ${{ env.ACCOUNT_A_DEPLOY_ROLE }}
 
       - name: Deploy ${{ env.STACK_NAME_LAMBDA }} CFN stack to account A
-        uses: aws-actions/aws-cloudformation-github-deploy@v1
+        uses: aws-actions/aws-cloudformation-github-deploy@v2
         with:
           name: ${{ env.STACK_NAME_LAMBDA }}
           capabilities: CAPABILITY_IAM
